@@ -4,11 +4,14 @@ import { useAppState } from "../../hooks/useAppState";
 export function RecommendationPage() {
   const {
     activeAlcohol,
+    fixedRecommendationNames,
     isRefreshingRecommendations,
     recommendations,
-    refreshRecommendations,
+    refreshUnlockedRecommendations,
     selectRecommendation,
+    toggleRecommendationFixed,
   } = useAppState();
+  const fixedCount = fixedRecommendationNames.length;
 
   return (
     <section className="screen-panel">
@@ -20,10 +23,14 @@ export function RecommendationPage() {
           <button
             className="button button--light screen-toolbar__button"
             disabled={isRefreshingRecommendations}
-            onClick={() => void refreshRecommendations()}
+            onClick={() => void refreshUnlockedRecommendations()}
             type="button"
           >
-            {isRefreshingRecommendations ? "추천 다시 불러오는 중..." : "⬅ 다른 추천 보기"}
+            {isRefreshingRecommendations
+              ? "추천 다시 불러오는 중..."
+              : fixedCount > 0
+                ? `고정 ${fixedCount}개 빼고 다시 추천`
+                : "⬅ 다른 추천 보기"}
           </button>
           <Link className="button button--light screen-toolbar__button" to="/">
             🏠 홈으로
@@ -32,18 +39,37 @@ export function RecommendationPage() {
       </div>
 
       <div className="recommendation-card-grid">
-        {recommendations.map((recommendation) => (
-          <Link
-            className="recommendation-choice-card"
-            key={recommendation.id}
-            onClick={() => selectRecommendation(recommendation.id)}
-            to={`/recommendations/${recommendation.id}`}
-          >
-            <div className="recommendation-choice-card__emoji">{recommendation.icon}</div>
-            <strong>{recommendation.name}</strong>
-            <p>"{recommendation.shortReason}"</p>
-          </Link>
-        ))}
+        {recommendations.map((recommendation) => {
+          const isFixed = fixedRecommendationNames.includes(recommendation.name);
+
+          return (
+            <article
+              className={`recommendation-choice-card ${
+                isFixed ? "recommendation-choice-card--fixed" : ""
+              }`}
+              key={recommendation.id}
+            >
+              <button
+                className="recommendation-choice-card__pin"
+                onClick={() => toggleRecommendationFixed(recommendation.id)}
+                type="button"
+              >
+                {isFixed ? "고정됨" : "고정"}
+              </button>
+              <Link
+                className="recommendation-choice-card__link"
+                onClick={() => selectRecommendation(recommendation.id)}
+                to={`/recommendations/${recommendation.id}`}
+              >
+                <div className="recommendation-choice-card__emoji">
+                  {recommendation.icon}
+                </div>
+                <strong>{recommendation.name}</strong>
+                <p>"{recommendation.shortReason}"</p>
+              </Link>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
