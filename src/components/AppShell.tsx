@@ -3,23 +3,19 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAppState } from "../hooks/useAppState";
 
 function canAutoNavigateToDetected(pathname: string) {
-  if (pathname === "/detected-ingredients") {
-    return false;
-  }
+  return pathname !== "/scan/ingredient";
+}
 
-  if (pathname.startsWith("/recommendations/")) {
-    return false;
-  }
-
-  return true;
+function canAutoNavigateToLiquorScan(pathname: string) {
+  return pathname !== "/scan/liquor";
 }
 
 export function AppShell({ children }: PropsWithChildren) {
-  const { pendingIngredients, recommendations, systemStatus } = useAppState();
+  const { activeAlcohol, pendingIngredients, systemStatus } = useAppState();
   const location = useLocation();
   const navigate = useNavigate();
   const previousPendingCountRef = useRef(pendingIngredients.length);
-  const previousRecommendationCountRef = useRef(recommendations.length);
+  const previousAlcoholIdRef = useRef(activeAlcohol?.id ?? null);
   const [clockLabel, setClockLabel] = useState(() =>
     new Intl.DateTimeFormat("ko-KR", {
       hour: "2-digit",
@@ -49,22 +45,23 @@ export function AppShell({ children }: PropsWithChildren) {
     const hasNewDetectedIngredient = pendingIngredients.length > previousPendingCount;
 
     if (hasNewDetectedIngredient && canAutoNavigateToDetected(location.pathname)) {
-      navigate("/detected-ingredients");
+      navigate("/scan/ingredient");
     }
 
     previousPendingCountRef.current = pendingIngredients.length;
   }, [location.pathname, navigate, pendingIngredients.length]);
 
   useEffect(() => {
-    const previousRecommendationCount = previousRecommendationCountRef.current;
-    const hasNewRecommendations = recommendations.length > previousRecommendationCount;
+    const nextAlcoholId = activeAlcohol?.id ?? null;
+    const hasNewAlcoholDetection =
+      Boolean(nextAlcoholId) && nextAlcoholId !== previousAlcoholIdRef.current;
 
-    if (hasNewRecommendations && location.pathname !== "/recommendations") {
-      navigate("/recommendations");
+    if (hasNewAlcoholDetection && canAutoNavigateToLiquorScan(location.pathname)) {
+      navigate("/scan/liquor");
     }
 
-    previousRecommendationCountRef.current = recommendations.length;
-  }, [location.pathname, navigate, recommendations.length]);
+    previousAlcoholIdRef.current = nextAlcoholId;
+  }, [activeAlcohol?.id, location.pathname, navigate]);
 
   return (
     <div className="tablet-app">
