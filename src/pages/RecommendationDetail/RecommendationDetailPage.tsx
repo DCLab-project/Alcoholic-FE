@@ -3,7 +3,13 @@ import { useAppState } from "../../hooks/useAppState";
 
 export function RecommendationDetailPage() {
   const { recommendationId } = useParams();
-  const { recommendations } = useAppState();
+  const {
+    activeAlcohol,
+    favoriteRecipes,
+    recommendations,
+    saveFavoriteRecipe,
+    savingFavoriteRecommendationId,
+  } = useAppState();
 
   const recommendation = recommendations.find((item) => item.id === recommendationId);
 
@@ -32,6 +38,21 @@ export function RecommendationDetailPage() {
       label: "부족함 (구매 필요)",
     })),
   ];
+  const isSaved = favoriteRecipes.some(
+    (favorite) =>
+      favorite.name === recommendation.name &&
+      favorite.liquorName === (activeAlcohol?.name ?? favorite.liquorName),
+  );
+  const isSavingFavorite = savingFavoriteRecommendationId === recommendation.id;
+  const recommendationIdForSave = recommendation.id;
+
+  async function handleSaveFavorite() {
+    try {
+      await saveFavoriteRecipe(recommendationIdForSave);
+    } catch {
+      return;
+    }
+  }
 
   return (
     <section className="screen-panel">
@@ -39,9 +60,19 @@ export function RecommendationDetailPage() {
         <Link className="button button--light screen-toolbar__button" to="/recommendations">
           ← 뒤로가기
         </Link>
-        <Link className="button button--primary screen-toolbar__button" to="/">
-          🏠 완료
-        </Link>
+        <div className="screen-toolbar__actions">
+          <button
+            className={isSaved ? "button button--light" : "button button--primary"}
+            disabled={isSaved || isSavingFavorite}
+            onClick={() => void handleSaveFavorite()}
+            type="button"
+          >
+            {isSaved ? "♡ 저장됨" : isSavingFavorite ? "저장 중..." : "♡ 즐겨찾기 저장"}
+          </button>
+          <Link className="button button--primary screen-toolbar__button" to="/">
+            🏠 완료
+          </Link>
+        </div>
       </div>
 
       <div className="detail-layout">
