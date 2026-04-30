@@ -1,6 +1,7 @@
 import type {
   AlcoholDetection,
   DetectedIngredient,
+  FavoriteRecipe,
   Recommendation,
   StoredIngredient,
 } from "../types/app";
@@ -38,19 +39,50 @@ type InventoryQuantityResponse = {
   current_quantity: number;
 };
 
+type RecommendationItemResponse = {
+  name: string;
+  reason: string;
+  ingredient_yes?: string[];
+  ingredient_no?: string[];
+  recipe: string[];
+  missing_ingredients?: string[];
+};
+
 type RecommendationResponse = {
   liquor: string;
-  recommendations: Array<{
-    name: string;
-    reason: string;
-    ingredient_yes?: string[];
-    ingredient_no?: string[];
-    recipe: string[];
-    missing_ingredients: string[];
-  }>;
+  recommendations: RecommendationItemResponse[];
+};
+
+type FavoriteRecipeItemResponse = RecommendationItemResponse & {
+  id?: string;
+  favorite_id?: string;
+  liquor?: string;
+  liquor_name?: string;
+  created_at?: string;
+  saved_at?: string;
+};
+
+type FavoriteRecipeListResponse =
+  | FavoriteRecipeItemResponse[]
+  | {
+      status?: string;
+      data?: FavoriteRecipeItemResponse[];
+    };
+
+type RecommendationRefreshResponse = RecommendationResponse;
+
+type InventoryMutationResponse = {
+  status: string;
+  message?: string;
 };
 
 type LiquorScanStartResponse = {
+  status: string;
+  message: string;
+  scan_request_id: string;
+};
+
+type IngredientScanStartResponse = {
   status: string;
   message: string;
   scan_request_id: string;
@@ -63,18 +95,30 @@ const ingredientIconMap: Record<string, string> = {
   대파: "🥬",
   김치: "🥡",
   계란: "🥚",
+  egg: "🥚",
   onion: "🧅",
   양파: "🧅",
   tomato: "🍅",
+  토마토: "🍅",
   베이컨: "🥓",
   치즈: "🧀",
   버터: "🧈",
   새우: "🍤",
   레몬: "🍋",
+  두부: "◻️",
+  tofu: "◻️",
+  삼겹살: "🥓",
+  pork_belly: "🥓",
+  마늘: "🧄",
+  garlic: "🧄",
   소주: "🍶",
   맥주: "🍺",
   와인: "🍷",
+  화이트와인: "🥂",
+  레드와인: "🍷",
+  사케: "🍶",
   위스키: "🥃",
+  샴페인: "🍾",
 };
 
 const ingredientLabelMap: Record<string, string> = {
@@ -85,6 +129,8 @@ const ingredientLabelMap: Record<string, string> = {
   egg: "계란",
   bacon: "베이컨",
   tofu: "두부",
+  pork_belly: "삼겹살",
+  garlic: "마늘",
 };
 
 const liquorLabelMap: Record<string, string> = {
@@ -93,6 +139,12 @@ const liquorLabelMap: Record<string, string> = {
   whisky: "위스키",
   whiskey: "위스키",
   wine: "와인",
+  white_wine: "화이트와인",
+  whitewine: "화이트와인",
+  red_wine: "레드와인",
+  redwine: "레드와인",
+  sake: "사케",
+  champagne: "샴페인",
 };
 
 function buildUrl(path: string) {
@@ -120,7 +172,13 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(message || `Request failed with ${response.status}`);
   }
 
-  return (await response.json()) as T;
+  const text = await response.text();
+
+  if (!text) {
+    return undefined as T;
+  }
+
+  return JSON.parse(text) as T;
 }
 
 function getIngredientIcon(name: string) {
@@ -143,6 +201,10 @@ function toShortReason(reason: string) {
 
 function normalizeRecipeStep(step: string) {
   return step.replace(/^\s*\d+\s*:\s*/, "").trim();
+}
+
+function restoreRecipeStep(step: string, index: number) {
+  return `${index + 1}: ${normalizeRecipeStep(step)}`;
 }
 
 function mapInventoryItem(item: InventoryItemResponse): StoredIngredient {
@@ -188,7 +250,7 @@ function mapIngredientDetection(
 function mapRecommendations(response: RecommendationResponse): Recommendation[] {
   return response.recommendations.map((recommendation, index) => {
     const unavailableIngredients =
-      recommendation.ingredient_no ?? recommendation.missing_ingredients;
+      recommendation.ingredient_no ?? recommendation.missing_ingredients ?? [];
 
     return {
       id: `${response.liquor}-${recommendation.name}-${index}`,
@@ -199,9 +261,51 @@ function mapRecommendations(response: RecommendationResponse): Recommendation[] 
       availableIngredients: recommendation.ingredient_yes ?? [],
       unavailableIngredients,
       recipeSteps: recommendation.recipe.map(normalizeRecipeStep),
-      missingIngredients: recommendation.missing_ingredients,
+      missingIngredients: recommendation.missing_ingredients ?? unavailableIngredients,
     };
   });
+}
+
+function mapFavoriteRecipe(
+  item: FavoriteRecipeItemResponse,
+  index: number,
+): FavoriteRecipe {
+  const liquorName = item.liquor ?? item.liquor_name ?? "저장한 주류";
+  const unavailableIngredients = item.ingredient_no ?? item.missing_ingredients ?? [];
+
+  return {
+    id: `favorite-${item.favorite_id ?? item.id ?? index}`,
+    favoriteId: item.favorite_id ?? item.id ?? `${item.name}-${index}`,
+    liquorName,
+    name: item.name,
+    icon: getIngredientIcon(item.name),
+    shortReason: toShortReason(item.reason),
+    reason: item.reason,
+    availableIngredients: item.ingredient_yes ?? [],
+    unavailableIngredients,
+    recipeSteps: item.recipe.map(normalizeRecipeStep),
+    missingIngredients: item.missing_ingredients ?? unavailableIngredients,
+    savedAt: item.saved_at ?? item.created_at,
+  };
+}
+
+function normalizeFavoriteRecipeResponse(response: FavoriteRecipeListResponse) {
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  return response.data ?? [];
+}
+
+function recommendationToApiItem(recommendation: Recommendation) {
+  return {
+    name: recommendation.name,
+    reason: recommendation.reason,
+    ingredient_yes: recommendation.availableIngredients,
+    ingredient_no: recommendation.unavailableIngredients,
+    recipe: recommendation.recipeSteps.map(restoreRecipeStep),
+    missing_ingredients: recommendation.missingIngredients,
+  };
 }
 
 function attachSseListeners<T>(
@@ -300,6 +404,45 @@ export async function patchIngredientQuantity(
   });
 }
 
+export async function createInventoryIngredient(
+  ingredientName: string,
+  quantity: number,
+) {
+  return requestJson<InventoryMutationResponse>("/api/v1/inventory", {
+    method: "POST",
+    body: JSON.stringify({
+      ingredient_name: ingredientName,
+      quantity,
+    }),
+  });
+}
+
+export async function updateInventoryIngredient(
+  currentIngredientName: string,
+  nextIngredientName: string,
+  quantity: number,
+) {
+  return requestJson<InventoryMutationResponse>(
+    `/api/v1/inventory/${encodeURIComponent(currentIngredientName)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        ingredient_name: nextIngredientName,
+        quantity,
+      }),
+    },
+  );
+}
+
+export async function removeInventoryIngredient(ingredientName: string) {
+  return requestJson<InventoryMutationResponse>(
+    `/api/v1/inventory/${encodeURIComponent(ingredientName)}`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
 export async function fetchRecommendations(liquorName: string, refresh: boolean) {
   const query = new URLSearchParams({
     liquor: liquorName,
@@ -316,6 +459,70 @@ export async function fetchRecommendations(liquorName: string, refresh: boolean)
   return mapRecommendations(response);
 }
 
+export async function refreshRecommendationsWithKeep(
+  liquorName: string,
+  keepRecommendations: Recommendation[],
+) {
+  const response = await requestJson<RecommendationRefreshResponse>(
+    "/api/v1/recommendations/refresh",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        liquor: liquorName,
+        keep_recommendations: keepRecommendations.map(recommendationToApiItem),
+        refresh_count: Math.max(0, 3 - keepRecommendations.length),
+      }),
+    },
+  );
+
+  return mapRecommendations(response);
+}
+
+export async function fetchFavoriteRecipes() {
+  const response = await requestJson<FavoriteRecipeListResponse>(
+    "/api/v1/favorite-recipes",
+    {
+      method: "GET",
+    },
+  );
+
+  return normalizeFavoriteRecipeResponse(response).map(mapFavoriteRecipe);
+}
+
+export async function persistFavoriteRecipe(
+  liquorName: string,
+  recommendation: Recommendation,
+) {
+  const recipe = recommendationToApiItem(recommendation);
+
+  try {
+    return await requestJson<InventoryMutationResponse>("/api/v1/favorite-recipes", {
+      method: "POST",
+      body: JSON.stringify({
+        liquor: liquorName,
+        ...recipe,
+      }),
+    });
+  } catch {
+    return requestJson<InventoryMutationResponse>("/api/v1/favorite-recipes", {
+      method: "POST",
+      body: JSON.stringify({
+        liquor: liquorName,
+        recommendation: recipe,
+      }),
+    });
+  }
+}
+
+export async function removeFavoriteRecipe(favoriteId: string) {
+  return requestJson<InventoryMutationResponse>(
+    `/api/v1/favorite-recipes/${encodeURIComponent(favoriteId)}`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
 export async function startLiquorScan() {
   return requestJson<LiquorScanStartResponse>("/api/v1/scan/liquor/start", {
     method: "POST",
@@ -324,6 +531,19 @@ export async function startLiquorScan() {
       device_id: "display-01",
     }),
   });
+}
+
+export async function startIngredientScan() {
+  return requestJson<IngredientScanStartResponse>(
+    "/api/v1/scan/ingredients/start",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        triggered_by: "frontend",
+        device_id: "display-01",
+      }),
+    },
+  );
 }
 
 export const apiMappers = {
