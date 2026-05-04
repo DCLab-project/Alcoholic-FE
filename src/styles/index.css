@@ -773,6 +773,26 @@ input:focus {
   gap: 18px;
 }
 
+.detail-screen {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-screen .detail-toolbar {
+  flex: 0 0 auto;
+}
+
+.detail-screen .detail-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.detail-screen .detail-card {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .detail-card {
   min-height: 372px;
   padding: 16px;
@@ -1099,6 +1119,10 @@ input:focus {
 
   .detail-card {
     min-height: auto;
+  }
+
+  .detail-screen .detail-card {
+    overflow: visible;
   }
 
   .home-dashboard__hero {
