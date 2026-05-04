@@ -79,7 +79,7 @@ export function RecommendationDetailPage() {
   }
 
   return (
-    <section className="screen-panel">
+    <section className="screen-panel detail-screen">
       <div className="detail-toolbar">
         <Link className="button button--light screen-toolbar__button" to="/recommendations">
           ← 뒤로가기

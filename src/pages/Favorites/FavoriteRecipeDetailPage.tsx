@@ -90,7 +90,7 @@ export function FavoriteRecipeDetailPage() {
   }
 
   return (
-    <section className="screen-panel">
+    <section className="screen-panel detail-screen">
       <div className="detail-toolbar">
         <Link className="button button--light screen-toolbar__button" to="/favorites">
           ← 즐겨찾기
