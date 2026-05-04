@@ -24,7 +24,7 @@ import {
   startLiquorScan,
   updateInventoryIngredient,
 } from "../services/api";
-import type { AppSnapshot, AppStateValue } from "../types/app";
+import type { AppSnapshot, AppStateValue, RecommendationFilters } from "../types/app";
 
 const initialSnapshot: AppSnapshot = {
   systemStatus: {
@@ -86,6 +86,8 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const [fixedRecommendationNames, setFixedRecommendationNames] = useState<string[]>(
     [],
   );
+  const [recommendationFilters, setRecommendationFilters] =
+    useState<RecommendationFilters>({});
   const ingredientSequenceRef = useRef(0);
   const recommendationRequestRef = useRef(0);
 
@@ -222,7 +224,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       const recommendations =
         keepRecommendations.length > 0
           ? await refreshRecommendationsWithKeep(liquorName, keepRecommendations)
-          : await fetchRecommendations(liquorName, refresh);
+          : await fetchRecommendations(liquorName, refresh, recommendationFilters);
 
       if (recommendationRequestRef.current !== requestId) {
         return;
@@ -473,6 +475,50 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     await loadRecommendations(snapshot.activeAlcohol.name, true);
   }
 
+  async function handleUpdateRecommendationFilters(filters: RecommendationFilters) {
+    setRecommendationFilters(filters);
+    setFixedRecommendationNames([]);
+
+    if (!snapshot.activeAlcohol) {
+      return;
+    }
+
+    const requestId = recommendationRequestRef.current + 1;
+    recommendationRequestRef.current = requestId;
+    setIsRefreshingRecommendations(true);
+    setErrorMessage(null);
+
+    try {
+      const recommendations = await fetchRecommendations(
+        snapshot.activeAlcohol.name,
+        false,
+        filters,
+      );
+
+      if (recommendationRequestRef.current !== requestId) {
+        return;
+      }
+
+      setSnapshot((current) => ({
+        ...current,
+        recommendations,
+        systemStatus: {
+          ...current.systemStatus,
+          lastSensorEvent: `${snapshot.activeAlcohol?.name} 기준 추천 필터 적용 완료`,
+        },
+      }));
+      syncRecommendationSelection(recommendations.map((item) => item.id));
+    } catch {
+      if (recommendationRequestRef.current === requestId) {
+        setErrorMessage("추천 필터 적용에 실패했습니다.");
+      }
+    } finally {
+      if (recommendationRequestRef.current === requestId) {
+        setIsRefreshingRecommendations(false);
+      }
+    }
+  }
+
   async function handleRefreshUnlockedRecommendations() {
     if (!snapshot.activeAlcohol) {
       setErrorMessage("감지된 술이 없어 다른 추천을 요청할 수 없습니다.");
@@ -648,6 +694,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     updatingIngredientId,
     selectedRecommendationId,
     fixedRecommendationNames,
+    recommendationFilters,
     refreshSnapshot: loadInventory,
     savePendingIngredients: handleSavePendingIngredients,
     savePendingIngredient: handleSavePendingIngredient,
@@ -660,6 +707,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     deleteInventoryIngredient: handleDeleteInventoryIngredient,
     refreshRecommendations: handleRefreshRecommendations,
     refreshUnlockedRecommendations: handleRefreshUnlockedRecommendations,
+    updateRecommendationFilters: handleUpdateRecommendationFilters,
     toggleRecommendationFixed: handleToggleRecommendationFixed,
     selectRecommendation: setSelectedRecommendationId,
     loadFavoriteRecipes,

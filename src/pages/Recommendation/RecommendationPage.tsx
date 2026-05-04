@@ -1,15 +1,38 @@
 import { Link } from "react-router-dom";
 import { useAppState } from "../../hooks/useAppState";
+import type { RecommendationFilters } from "../../types/app";
+
+const quickFilters: Array<{
+  label: string;
+  filters: RecommendationFilters;
+}> = [
+  { label: "전체", filters: {} },
+  { label: "있는 재료만", filters: { availableOnly: true } },
+  { label: "부족 1개 이하", filters: { maxMissingCount: 1 } },
+  { label: "20분 이하", filters: { maxCookTimeMinutes: 20 } },
+  { label: "쉬움", filters: { difficulty: "easy" } },
+];
+
+function isSameFilter(left: RecommendationFilters, right: RecommendationFilters) {
+  return (
+    left.availableOnly === right.availableOnly &&
+    left.maxMissingCount === right.maxMissingCount &&
+    left.maxCookTimeMinutes === right.maxCookTimeMinutes &&
+    left.difficulty === right.difficulty
+  );
+}
 
 export function RecommendationPage() {
   const {
     activeAlcohol,
     fixedRecommendationNames,
     isRefreshingRecommendations,
+    recommendationFilters,
     recommendations,
     refreshUnlockedRecommendations,
     selectRecommendation,
     toggleRecommendationFixed,
+    updateRecommendationFilters,
   } = useAppState();
   const fixedCount = fixedRecommendationNames.length;
 
@@ -38,6 +61,24 @@ export function RecommendationPage() {
         </div>
       </div>
 
+      <div className="recommendation-filter-bar">
+        {quickFilters.map((filter) => {
+          const isActive = isSameFilter(recommendationFilters, filter.filters);
+
+          return (
+            <button
+              className={`filter-chip ${isActive ? "filter-chip--active" : ""}`}
+              disabled={isRefreshingRecommendations}
+              key={filter.label}
+              onClick={() => void updateRecommendationFilters(filter.filters)}
+              type="button"
+            >
+              {filter.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="recommendation-card-grid">
         {recommendations.map((recommendation) => {
           const isFixed = fixedRecommendationNames.includes(recommendation.name);
@@ -64,8 +105,21 @@ export function RecommendationPage() {
                 <div className="recommendation-choice-card__emoji">
                   {recommendation.icon}
                 </div>
+                <div className="recommendation-choice-card__meta">
+                  {recommendation.priorityRank ? (
+                    <span>{recommendation.priorityRank}순위</span>
+                  ) : null}
+                  {recommendation.cookTimeMinutes ? (
+                    <span>{recommendation.cookTimeMinutes}분</span>
+                  ) : null}
+                  {recommendation.difficulty ? (
+                    <span>{recommendation.difficulty}</span>
+                  ) : null}
+                </div>
                 <strong>{recommendation.name}</strong>
-                <p>"{recommendation.shortReason}"</p>
+                <p>
+                  "{recommendation.priorityReason ?? recommendation.shortReason}"
+                </p>
               </Link>
             </article>
           );
