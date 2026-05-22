@@ -8,11 +8,9 @@ export function MainPage() {
     isAwaitingLiquorDetection,
     isStartingIngredientScan,
     isStartingLiquorScan,
-    recommendations,
     startIngredientScan,
     startLiquorScan,
   } = useAppState();
-  const hasReadyRecommendations = recommendations.length > 0;
 
   async function handleStartIngredientScan() {
     navigate("/scan/ingredient");
@@ -37,12 +35,13 @@ export function MainPage() {
   return (
     <section className="screen-panel home-dashboard">
       <div className="home-dashboard__hero">
-        <div>
+        <div className="home-dashboard__hero-copy">
           <span className="home-dashboard__eyebrow">AI 냉장고 홈</span>
           <h1>오늘의 냉장고를 확인하고 안주를 추천받아보세요</h1>
         </div>
-        <p>
-          식재료를 넣을 때는 식재료 스캔, 
+        <span className="home-dashboard__hero-divider" aria-hidden="true" />
+        <p className="home-dashboard__hero-note">
+          식재료를 넣을 때는 식재료 스캔,
           <br />
           마실 술을 고를 때는 주류 스캔을 시작하세요.
         </p>
@@ -88,11 +87,7 @@ export function MainPage() {
         <Link className="home-action-card" to="/favorites">
           <span className="home-action-card__icon">♡</span>
           <strong>즐겨찾는 레시피 보기</strong>
-          <span>
-            {hasReadyRecommendations
-              ? "저장한 레시피와 최근 추천 확인"
-              : "하트로 저장한 안주 모아보기"}
-          </span>
+          <span>하트로 저장한 안주 모아보기</span>
         </Link>
       </div>
     </section>
