@@ -1,8 +1,37 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAppState } from "../../hooks/useAppState";
 
+const weekDayLabels = ["일", "월", "화", "수", "목", "금", "토"];
+
+function getWeekDates(today: Date) {
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - today.getDay());
+
+  return weekDayLabels.map((dayLabel, index) => {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + index);
+
+    return {
+      dayLabel,
+      dateNumber: date.getDate(),
+      isToday: date.toDateString() === today.toDateString(),
+    };
+  });
+}
+
 export function MainPage() {
   const navigate = useNavigate();
+  const today = new Date();
+  const dateLabel = new Intl.DateTimeFormat("ko-KR", {
+    month: "long",
+    day: "numeric",
+    weekday: "long",
+  }).format(today);
+  const monthLabel = new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "long",
+  }).format(today);
+  const calendarDays = getWeekDates(today);
   const {
     isAwaitingIngredientDetection,
     isAwaitingLiquorDetection,
@@ -89,6 +118,58 @@ export function MainPage() {
           <strong>즐겨찾는 레시피 보기</strong>
           <span>하트로 저장한 안주 모아보기</span>
         </Link>
+      </div>
+
+      <div className="home-dashboard__widgets">
+        <article className="home-weather-card" aria-label="오늘 날씨">
+          <div className="home-widget-card__header">
+            <div>
+              <span className="home-widget-card__eyebrow">오늘 날씨</span>
+              <strong>서울 · {dateLabel}</strong>
+            </div>
+            <span className="home-weather-card__badge">안주 추천 지수 좋음</span>
+          </div>
+
+          <div className="home-weather-card__body">
+            <div className="home-weather-card__icon" aria-hidden="true">
+              ☀️
+            </div>
+            <div>
+              <strong className="home-weather-card__temperature">24°</strong>
+              <p>맑고 산뜻한 저녁이에요</p>
+            </div>
+          </div>
+
+          <div className="home-weather-card__meta">
+            <span>습도 48%</span>
+            <span>바람 2m/s</span>
+            <span>체감 23°</span>
+          </div>
+        </article>
+
+        <article className="home-calendar-card" aria-label="주간 캘린더">
+          <div className="home-widget-card__header">
+            <div>
+              <span className="home-widget-card__eyebrow">캘린더</span>
+              <strong>{monthLabel}</strong>
+            </div>
+            <span className="home-calendar-card__today">{today.getDate()}</span>
+          </div>
+
+          <div className="home-calendar-card__week">
+            {calendarDays.map((day) => (
+              <div
+                className={`home-calendar-card__day${
+                  day.isToday ? " home-calendar-card__day--today" : ""
+                }`}
+                key={`${day.dayLabel}-${day.dateNumber}`}
+              >
+                <span>{day.dayLabel}</span>
+                <strong>{day.dateNumber}</strong>
+              </div>
+            ))}
+          </div>
+        </article>
       </div>
     </section>
   );
